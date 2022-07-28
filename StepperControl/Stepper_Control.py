@@ -55,6 +55,10 @@ class Stepper_Control():
            '''
            print("Starting polling ", bsm.SBC_StartPolling(self.c_Serial_Number, self.c_Channel, c_Milliseconds))
 
+       def
+
+
+
        def Home_Stepper(self,Channel=1,Milliseconds = 100,Homing_Velocity =1):
            '''
            This function is not yet ready to use!!!
@@ -104,47 +108,6 @@ class Stepper_Control():
            else:
                print(f"Can't home. Err: {err}")
            bsm.SBC_StopPolling(self.c_Serial_Number, Channel)
-
-       def Move_Relative_Distance_Stepper(self,Channel=1,Step_Size = 400,Total_Distance = 8000):
-           '''
-
-           :return:
-           '''
-           #parameters
-           self.c_Channel = c_short(Channel)
-
-           #polling and queue
-           sleep(1.0)
-           self.Start_Polling_Stepper()
-           bsm.SBC_ClearMessageQueue(self.c_Serial_Number, self.c_Channel)
-
-           #setting step size and distance
-           sleep(1.0)
-           bsm.SBC_SetJogStepSize(self.c_Serial_Number, self.c_Channel, c_uint(Step_Size))
-           sleep(1.0)
-
-
-           print("Setting Relative Distance",
-                 bsm.SBC_SetMoveRelativeDistance(self.c_Serial_Number, self.c_Channel, c_int(Total_Distance)))
-           sleep(0.2)
-
-           # activating movement
-           print(f"Moving {Total_Distance}",
-                 bsm.SBC_MoveRelativeDistance(self.c_Serial_Number, self.c_Channel))
-           sleep(0.2)
-
-           # print current position
-           distance = int(bsm.SBC_GetMoveRelativeDistance(self.c_Serial_Number, self.c_Channel))
-           sleep(0.2)
-           print(f"Current distance: {distance}")
-           while not distance == Total_Distance:
-               sleep(0.2)
-               distance = int(bsm.SBC_GetMoveRelativeDistance(self.c_Serial_Number, self.c_Channel))
-               print(f"Current pos: {distance}")
-
-
-
-
 
        def Move_To_Absulote_Position_Stepper(self, Channel=1, Milliseconds=100,Move_To = 400):
            #moving the stage parameters setting
