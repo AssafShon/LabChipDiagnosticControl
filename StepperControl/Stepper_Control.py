@@ -14,6 +14,9 @@ from time import sleep
 
 from thorlabs_kinesis import benchtop_stepper_motor as bsm
 
+# Global Parameters
+STEP = 1.2207020447709976e-06 #device unit in [mm]
+
 class Stepper_Control():
        """
        This module controls the Thorlab's Benchtop StepperMotor, using dll's bindings.
@@ -47,17 +50,74 @@ class Stepper_Control():
            print("Stopping polling ", bsm.SBC_StopPolling(self.c_Serial_Number,self.c_Channel))
            print("Closing connection ", bsm.SBC_Close(self.c_Serial_Number, self.c_Channel))
 
-       def Start_Polling_Stepper(self,c_Milliseconds =100):
+       def Polling_and_Queue_Stepper(self,c_Milliseconds =100):
            '''
             Starts the internal polling loop which continuously requests position and status.
            :param c_Milliseconds: The milliseconds polling rate.
            :return:
            '''
            print("Starting polling ", bsm.SBC_StartPolling(self.c_Serial_Number, self.c_Channel, c_Milliseconds))
+           bsm.SBC_ClearMessageQueue(self.c_Serial_Number, self.c_Channel)
 
-       def
+
+       def Jog(self,Channel=1,Step_Size = int(1e8),Accelaration = int(1e8), Max_Velocity=int(1e8),Jog_Direction='Forwards'):
+           '''
+           Jog the stage with definite step size towrads a specific direction.
+           :param Channel: Stepper's Channel
+           :param Step_Size:
+           :param Accelaration:
+           :param Max_Velocity:
+           :param Jog_Direction:
+           :return:
+           '''
+           #parameters
+           self.c_Channel = c_short(Channel)
+
+           #polling and queue
+           sleep(0.2)
+           self.Polling_and_Queue_Stepper()
+
+           #setting jog params
+           sleep(0.2)
+           bsm.SBC_SetJogMode(self.c_Serial_Number, self.c_Channel,c_short(1),c_short(2))
+           Current_Jog_Mode = c_short()
+           Current_Jog_Stop_Mode = c_short()
+           bsm.SBC_GetJogMode(self.c_Serial_Number, self.c_Channel,byref(Current_Jog_Mode),byref(Current_Jog_Stop_Mode))
+
+           bsm.SBC_SetJogStepSize(self.c_Serial_Number, self.c_Channel, c_uint(Step_Size))
+           print("Jog step size set to ",
+                 bsm.SBC_GetJogStepSize(self.c_Serial_Number, self.c_Channel))
+           sleep(0.2)
+
+           bsm.SBC_SetJogVelParams(self.c_Serial_Number, self.c_Channel, c_int(Accelaration), c_int(Max_Velocity))
+           c_acceleration = c_int()  # container
+           c_maxVelocity = c_int()  # container
+           bsm.SBC_RequestJogParams(self.c_Serial_Number, self.c_Channel)
+           bsm.SBC_GetJogVelParams(self.c_Serial_Number, self.c_Channel, byref(c_acceleration),
+                                   byref(c_maxVelocity))
+           print("Jog max velocity is set to",c_maxVelocity.value,"acceleration",c_acceleration.value)
+
+           sleep(0.2)
 
 
+           # activating jogging
+           if Jog_Direction == 'Forwards':
+               bsm.SBC_MoveJog(self.c_Serial_Number, self.c_Channel, bsm.MOT_Forwards)
+               print(f"Moving {Step_Size} Forwards")
+           elif Jog_Direction == 'Backwards':
+               print(f"Moving {Step_Size} Backwards")
+               bsm.SBC_MoveJog(self.c_Serial_Number, self.c_Channel, bsm.MOT_Reverse)
+           sleep(0.2)
+           #must exist - without it the stage will keep moving!!
+           bsm.SBC_StopProfiled(self.c_Serial_Number, self.c_Channel)
+           # print current position
+           sleep(0.2)
+           position = int(bsm.SBC_GetPosition(self.c_Serial_Number, self.c_Channel))
+           sleep(0.2)
+           print(f"Current pos: {position}")
+
+           # print("Stopping polling ", bsm.SBC_StopPolling(self.c_Serial_Number, self.c_Channel))
+           # print("Closing connection ", bsm.SBC_Close(self.c_Serial_Number, self.c_Channel))
 
        def Home_Stepper(self,Channel=1,Milliseconds = 100,Homing_Velocity =1):
            '''
@@ -109,7 +169,9 @@ class Stepper_Control():
                print(f"Can't home. Err: {err}")
            bsm.SBC_StopPolling(self.c_Serial_Number, Channel)
 
-       def Move_To_Absulote_Position_Stepper(self, Channel=1, Milliseconds=100,Move_To = 400):
+
+
+       def Move_To_Absulote_Position_Stepper(self, Channel=1, Milliseconds=100,Move_To = 800):
            #moving the stage parameters setting
            self.c_Channel = c_short(Channel)
            c_Milliseconds = c_int(Milliseconds)
@@ -159,4 +221,5 @@ class Stepper_Control():
 
 if __name__ == "__main__":
     o=Stepper_Control()
-    o.Move_To_Absulote_Position_Stepper()
+    # o.Move_To_Absulote_Position_Stepper()
+    o.Jog()
