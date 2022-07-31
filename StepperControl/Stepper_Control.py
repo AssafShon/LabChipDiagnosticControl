@@ -15,8 +15,12 @@ from time import sleep
 from thorlabs_kinesis import benchtop_stepper_motor as bsm
 
 # Global Parameters
-STEP = 1.2207020447709976e-06 #device unit in [mm]
+DEVICE_UNIT_TO_MM = 1.2207020447709976e-06 #device unit to [mm]
 
+    #jog parameters
+JOG_STEP_MODE = c_short(2) # defines the jog mode to be stepped and not continuous, i.e. defined by step size
+JOG_PROFILED_STOP_MODE =  c_short(2) # defines the jog stop mode to be profiled and not immediately
+Jog_WHILE_LOOP_THRESHOLD = 1e-8
 class Stepper_Control():
        """
        This module controls the Thorlab's Benchtop StepperMotor, using dll's bindings.
@@ -60,15 +64,15 @@ class Stepper_Control():
            bsm.SBC_ClearMessageQueue(self.c_Serial_Number, self.c_Channel)
 
 
-       def Jog(self,Channel=1,Step_Size = int(1e8),Accelaration = int(1e8), Max_Velocity=int(1e8),Jog_Direction='Forwards'):
+       def Jog(self,Channel=1,Step_Size = 0.01,Accelaration = 2, Max_Velocity=0.1,Jog_Direction='Forwards'):
            '''
            Jog the stage with definite step size towrads a specific direction.
            :param Channel: Stepper's Channel
-           :param Step_Size:
-           :param Accelaration:
-           :param Max_Velocity:
-           :param Jog_Direction:
-           :return:
+           :param Step_Size: step size for jog in [mm]
+           :param Accelaration: accelaration in mm/s^2
+           :param Max_Velocity: maximal velocity in mm/s
+           :param Jog_Direction: Forwards or Backwards
+           :return: position - the new position of the stepper in the chosen channel
            '''
            #parameters
            self.c_Channel = c_short(Channel)
@@ -79,45 +83,58 @@ class Stepper_Control():
 
            #setting jog params
            sleep(0.2)
-           bsm.SBC_SetJogMode(self.c_Serial_Number, self.c_Channel,c_short(1),c_short(2))
+
+           bsm.SBC_SetJogMode(self.c_Serial_Number, self.c_Channel,JOG_STEP_MODE,JOG_PROFILED_STOP_MODE)
            Current_Jog_Mode = c_short()
            Current_Jog_Stop_Mode = c_short()
            bsm.SBC_GetJogMode(self.c_Serial_Number, self.c_Channel,byref(Current_Jog_Mode),byref(Current_Jog_Stop_Mode))
 
-           bsm.SBC_SetJogStepSize(self.c_Serial_Number, self.c_Channel, c_uint(Step_Size))
+           bsm.SBC_SetJogStepSize(self.c_Serial_Number, self.c_Channel, c_uint(int(Step_Size/DEVICE_UNIT_TO_MM)))
            print("Jog step size set to ",
-                 bsm.SBC_GetJogStepSize(self.c_Serial_Number, self.c_Channel))
+                 bsm.SBC_GetJogStepSize(self.c_Serial_Number, self.c_Channel)*DEVICE_UNIT_TO_MM)
            sleep(0.2)
 
-           bsm.SBC_SetJogVelParams(self.c_Serial_Number, self.c_Channel, c_int(Accelaration), c_int(Max_Velocity))
+           bsm.SBC_SetJogVelParams(self.c_Serial_Number, self.c_Channel, c_int(int(Accelaration/DEVICE_UNIT_TO_MM)), c_int(int(Max_Velocity/DEVICE_UNIT_TO_MM)))
            c_acceleration = c_int()  # container
            c_maxVelocity = c_int()  # container
            bsm.SBC_RequestJogParams(self.c_Serial_Number, self.c_Channel)
            bsm.SBC_GetJogVelParams(self.c_Serial_Number, self.c_Channel, byref(c_acceleration),
                                    byref(c_maxVelocity))
-           print("Jog max velocity is set to",c_maxVelocity.value,"acceleration",c_acceleration.value)
+           print("Jog max velocity is set to",c_maxVelocity.value*DEVICE_UNIT_TO_MM,"acceleration",c_acceleration.value*DEVICE_UNIT_TO_MM)
 
            sleep(0.2)
-
+           initial_position = int(bsm.SBC_GetPosition(self.c_Serial_Number, self.c_Channel)) * DEVICE_UNIT_TO_MM
+           print(f"Initial position: {initial_position} [mm]" )
+           sleep(0.2)
 
            # activating jogging
            if Jog_Direction == 'Forwards':
                bsm.SBC_MoveJog(self.c_Serial_Number, self.c_Channel, bsm.MOT_Forwards)
-               print(f"Moving {Step_Size} Forwards")
+               print(f"Moving {Step_Size} [mm] Forwards")
            elif Jog_Direction == 'Backwards':
-               print(f"Moving {Step_Size} Backwards")
+               print(f"Moving {Step_Size*DEVICE_UNIT_TO_MM}[mm] Backwards")
                bsm.SBC_MoveJog(self.c_Serial_Number, self.c_Channel, bsm.MOT_Reverse)
            sleep(0.2)
-           #must exist - without it the stage will keep moving!!
-           bsm.SBC_StopProfiled(self.c_Serial_Number, self.c_Channel)
+
+           #Stop if stage exceed 7.5 mm
+           position = int(bsm.SBC_GetPosition(self.c_Serial_Number, self.c_Channel))* DEVICE_UNIT_TO_MM
+           if position>7.5:
+               bsm.SBC_StopProfiled(self.c_Serial_Number, self.c_Channel)
            # print current position
+           while not initial_position+Step_Size-position < Jog_WHILE_LOOP_THRESHOLD:
+               sleep(0.2)
+               position = int(bsm.SBC_GetPosition(self.c_Serial_Number, self.c_Channel))* DEVICE_UNIT_TO_MM
+               sleep(0.2)
+               print(f"Current pos: {position}[mm]")
+           print(position - (initial_position+Step_Size))
+           sleep(1.0)
+           position = int(bsm.SBC_GetPosition(self.c_Serial_Number, self.c_Channel)) * DEVICE_UNIT_TO_MM
            sleep(0.2)
-           position = int(bsm.SBC_GetPosition(self.c_Serial_Number, self.c_Channel))
-           sleep(0.2)
-           print(f"Current pos: {position}")
+           print(f"new pos: {position}[mm]")
 
            # print("Stopping polling ", bsm.SBC_StopPolling(self.c_Serial_Number, self.c_Channel))
            # print("Closing connection ", bsm.SBC_Close(self.c_Serial_Number, self.c_Channel))
+           return position
 
        def Home_Stepper(self,Channel=1,Milliseconds = 100,Homing_Velocity =1):
            '''
