@@ -14,6 +14,7 @@ from System.Reflection import Assembly
 import Newport
 
 
+
 class LaserControl():
     def __init__(self):
         self.tlb = Newport.USBComm.USB()
@@ -48,4 +49,6 @@ class LaserControl():
         lambda_current = self.tlb_query('SOURCE:WAVELENGTH?')
         print('λ_current = {} nm'.format(lambda_current))
         return lambda_current
-
+if __name__=='main':
+    o=LaserControl()
+    o.tlb_set_wavelength()
