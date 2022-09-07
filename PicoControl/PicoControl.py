@@ -200,12 +200,12 @@ class PicoSigGenControl(PicoControl):
         self.pk_to_pk_voltage = pk_to_pk_voltage*1e6 #[uV]
         self.WaveType = ps.PS4000A_WAVE_TYPE['PS4000A_'+wave_type]
         self.SweepType = ps.PS4000A_SWEEP_TYPE['PS4000A_UP']
-        self.triggertype = ps.PS4000A_SIGGEN_TRIG_TYPE['PS4000A_SIGGEN_RISING']
-        self.triggerSource = ps.PS4000A_SIGGEN_TRIG_SOURCE['PS4000A_SIGGEN_NONE']
+        self.TriggerType = ps.PS4000A_SIGGEN_TRIG_TYPE['PS4000A_SIGGEN_RISING']
+        self.TriggerSource = ps.PS4000A_SIGGEN_TRIG_SOURCE['PS4000A_SIGGEN_NONE']
         self.extInThreshold = ctypes.c_int16(0)  # extInThreshold - Not used
 
         self.status["SetSigGenBuiltIn"] = ps.ps4000aSetSigGenBuiltIn(self.chandle, offset_voltage, self.pk_to_pk_voltage, self.wavetype, frequency, frequency, 1, 1,
-                                                                self.sweepType, 0, 0, 0, self.triggertype, self.triggerSource,
+                                                                self.SweepType, 0, 0, 0, self.TriggerType, self.triggerSource,
                                                                 self.extInThreshold)
         assert_pico_ok(self.status["SetSigGenBuiltIn"])
 
