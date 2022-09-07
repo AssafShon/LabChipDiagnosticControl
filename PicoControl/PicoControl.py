@@ -55,17 +55,20 @@ class PicoScopeControl():
         #parameters
         self.pico = pico
         self.set_channel(channel="CH_A",channel_range = 7, analogue_offset = 0.0)
+        self.set_channel(channel="CH_B", channel_range=7, analogue_offset=0.0)
         self.set_memory(sizeOfOneBuffer = 500,numBuffersToCapture = 10,Channel = "CH_A")
+        self.set_memory(sizeOfOneBuffer=500, numBuffersToCapture=10, Channel="CH_B")
 
     def plot_trace(self):
         # Create time data
-        time = np.linspace(0, (self.totalSamples - 1) * self.actualSampleIntervalNs, self.totalSamples)
+        time = 1e-9*np.linspace(0, (self.totalSamples - 1) * self.actualSampleIntervalNs, self.totalSamples)
 
         # Plot data from channel A and B
-        plt.plot(time, self.adc2mVChAMax[:])
-        plt.plot(time, self.adc2mVChBMax[:])
-        plt.xlabel('Time (ns)')
+        plt.plot(time, self.adc2mVChAMax[:],label='Channel A')
+        plt.plot(time, self.adc2mVChBMax[:], label='Channel B')
+        plt.xlabel('Time (s)')
         plt.ylabel('Voltage (mV)')
+        plt.legend()
         plt.show()
 
     def get_trace(self):
@@ -189,7 +192,7 @@ class PicoScopeControl():
 
 
 class PicoSigGenControl():
-    def __init__(self,pico, pk_to_pk_voltage = 2, offset_voltage = 0, frequency = 10,wave_type = 'RAMP_UP'):
+    def __init__(self,pico, pk_to_pk_voltage = 0.5, offset_voltage = 0, frequency = 10,wave_type = 'RAMP_UP'):
         '''
 
         :param pk_to_pk_voltage: voltage peak to peak of the output of the signal generator [V]
@@ -216,10 +219,12 @@ class PicoSigGenControl():
         return self.scan_width
 
 if __name__=='__main__':
-    o = PicoSigGenControl()
-    o = PicoScopeControl()
-    o.get_trace()
-    o.plot_trace()
+    Pico = PicoControl()
+    SigGen = PicoSigGenControl(Pico)
+    Scope = PicoScopeControl(Pico)
+    Scope.get_trace()
+    Scope.plot_trace()
+    Pico.__del__()
     # Instance = 'SCOPE'
     # if Instance== 'SCOPE':
     #     o=PicoScopeControl()
