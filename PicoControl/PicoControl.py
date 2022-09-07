@@ -197,6 +197,7 @@ class PicoSigGenControl():
         :param frequency: repetition frequency of the signal generator [Hz]
         '''
         self.pico = pico
+
         #unit conversion
         self.pk_to_pk_voltage = int(pk_to_pk_voltage*1e6) #[uV]
         self.WaveType = ps.PS4000A_WAVE_TYPE['PS4000A_'+wave_type]
