@@ -9,10 +9,7 @@ VOLT_TO_NM = 2 # calibration of volts from sigGen to nm at the laser
 ENABLED =  1
 
 class PicoControl():
-    def __init__(self, pk_to_pk_voltage = 2000000):
-        #parameters
-        self.pk_to_pk_voltage = pk_to_pk_voltage
-
+    def __init__(self):
         self.connect()
 
     def connect(self):
@@ -39,12 +36,10 @@ class PicoControl():
             assert_pico_ok(self.status["changePowerSource"])
 
 
-class PicoScopeControl():
-    def __init__(self, pk_to_pk_voltage = 2000000):
+class PicoScopeControl(PicoControl):
+    def __init__(self):
         #parameters
-        self.pk_to_pk_voltage = pk_to_pk_voltage
-
-        self.connect()
+        super().__init__()
         self.set_channel(channel="CH_A",channel_range = 7, analogue_offset = 0.0)
         self.set_memory(sizeOfOneBuffer = 500,numBuffersToCapture = 10,Channel = "CH_A")
 
@@ -150,7 +145,7 @@ class PicoScopeControl():
         else:
             self.status["setDataBuffersB"] = ps.ps4000aSetDataBuffers(self.chandle,
                                                                       ps.PS4000A_CHANNEL['PS4000A_CHANNEL_B'],
-                                                                      bufferAMax.ctypes.data_as(
+                                                                      self.bufferBMax.ctypes.data_as(
                                                                           ctypes.POINTER(ctypes.c_int16)),
                                                                       None,
                                                                       sizeOfOneBuffer,
@@ -177,29 +172,6 @@ class PicoScopeControl():
                                                          analogue_offset)
             assert_pico_ok(self.status["setChB"])
 
-    def connect(self):
-        '''
-        connect to pico
-        :return:
-        '''
-        # Create chandle and status ready for use
-        self.chandle = ctypes.c_int16()
-        self.status = {}
-
-        # Open PicoScope 2000 Series device
-        # Returns handle to chandle for use in future API functions
-        self.status["openunit"] = ps.ps4000aOpenUnit(ctypes.byref(self.chandle), None)
-        try:
-            assert_pico_ok(self.status["openunit"])
-        except:
-            powerStatus = self.status["openunit"]
-
-            if powerStatus == 286:
-                self.status["changePowerSource"] = ps.ps4000aChangePowerSource(self.chandle, powerStatus)
-            else:
-                raise
-            assert_pico_ok(self.status["changePowerSource"])
-
     def streaming_callback(self,handle, noOfSamples, startIndex, overflow, triggerAt, triggered, autoStop, param):
         # We need a big buffer, not registered with the driver, to keep our complete capture in.
         global autoStopOuter, wasCalledBack
@@ -215,12 +187,30 @@ class PicoScopeControl():
 
 
 
-class PicoSigGenControl(PicoScopeControl):
-    def __init__(self):
-        super(PicoScopeControl, self).__init__()
+class PicoSigGenControl(PicoControl):
+    def __init__(self, pk_to_pk_voltage = 2, offset_voltage = 0.0, frequency = 10,wave_type = 'RAMP_UP'):
+        '''
+
+        :param pk_to_pk_voltage: voltage peak to peak of the output of the signal generator [V]
+        :param offset_voltage: offset of the voltage range center from 0V
+        :param frequency: repetition frequency of the signal generator [Hz]
+        '''
+        super(PicoControl, self).__init__()
+        #unit conversion
+        self.pk_to_pk_voltage = pk_to_pk_voltage*1e6 #[uV]
+        self.WaveType = ps.PS4000A_WAVE_TYPE['PS4000A_'+wave_type]
+        self.SweepType = ps.PS4000A_SWEEP_TYPE['PS4000A_UP']
+        self.triggertype = ps.PS4000A_SIGGEN_TRIG_TYPE['PS4000A_SIGGEN_RISING']
+        self.triggerSource = ps.PS4000A_SIGGEN_TRIG_SOURCE['PS4000A_SIGGEN_NONE']
+        self.extInThreshold = ctypes.c_int16(0)  # extInThreshold - Not used
+
+        self.status["SetSigGenBuiltIn"] = ps.ps4000aSetSigGenBuiltIn(self.chandle, offset_voltage, self.pk_to_pk_voltage, self.wavetype, frequency, frequency, 1, 1,
+                                                                self.sweepType, 0, 0, 0, self.triggertype, self.triggerSource,
+                                                                self.extInThreshold)
+        assert_pico_ok(self.status["SetSigGenBuiltIn"])
 
     def calculate_scan_width(self):
-        self.scan_width = self.pk_to_pk_voltage * VOLT_TO_NM
+        self.scan_width = (self.pk_to_pk_voltage*1e-6) * VOLT_TO_NM
         return self.scan_width
 
 if __name__=='__main__':

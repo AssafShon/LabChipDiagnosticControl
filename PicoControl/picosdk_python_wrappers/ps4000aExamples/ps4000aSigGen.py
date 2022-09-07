@@ -90,7 +90,7 @@ triggertype = ps.PS4000A_SIGGEN_TRIG_TYPE['PS4000A_SIGGEN_RISING']
 triggerSource = ps.PS4000A_SIGGEN_TRIG_SOURCE['PS4000A_SIGGEN_NONE']
 extInThreshold = ctypes.c_int16(0) #extInThreshold - Not used
 
-status["SetSigGenBuiltIn"] = ps.ps4000aSetSigGenBuiltIn(chandle, 0, 2000000, wavetype, 10000, 10000, 0, 1, sweepType, 0, 0, 0, triggertype, triggerSource, extInThreshold)
+status["SetSigGenBuiltIn"] = ps.ps4000aSetSigGenBuiltIn(chandle, 0, 2000000, wavetype, 10000, 10, 0, 1, sweepType, 0, 0, 0, triggertype, triggerSource, extInThreshold)
 assert_pico_ok(status["SetSigGenBuiltIn"])
 
 # pauses the script to show signal

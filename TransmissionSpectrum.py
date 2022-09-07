@@ -29,7 +29,7 @@ class TransmissionSpectrum:
     def __init__(self,directory='20220824-0002',init_wavelength = 776e-9,final_wavelength = 781e-9,Python_Control = True):
         """"""
         if Python_Control:
-            self.SigGen = SigGen()
+            self.SigGen = SigGen(pk_to_pk_voltage = 2, offset_voltage = 0.0, frequency = 10,wave_type = 'RAMP_UP')
             self.single_scan_width = self.SigGen.calculate_scan_width()
             for i in np.arange(init_wavelength, final_wavelength, self.single_scan_width):
                 Laser.tlb_set_wavelength(i)
