@@ -12,6 +12,20 @@ class PicoControl():
     def __init__(self):
         self.connect()
 
+    def __del__(self):
+        # Stop the scope
+        # handle = chandle
+        self.status["stop"] = ps.ps4000aStop(self.chandle)
+        assert_pico_ok(self.status["stop"])
+
+        # Disconnect the scope
+        # handle = chandle
+        self.status["close"] = ps.ps4000aCloseUnit(self.chandle)
+        assert_pico_ok(self.status["close"])
+
+        # Display status returns
+        print(self.status)
+
     def connect(self):
         '''
         connect to pico
@@ -36,26 +50,12 @@ class PicoControl():
             assert_pico_ok(self.status["changePowerSource"])
 
 
-class PicoScopeControl(PicoControl):
-    def __init__(self):
+class PicoScopeControl():
+    def __init__(self,pico):
         #parameters
-        super().__init__()
+        self.pico = pico
         self.set_channel(channel="CH_A",channel_range = 7, analogue_offset = 0.0)
         self.set_memory(sizeOfOneBuffer = 500,numBuffersToCapture = 10,Channel = "CH_A")
-
-    def __del__(self):
-        # Stop the scope
-        # handle = chandle
-        self.status["stop"] = ps.ps4000aStop(self.chandle)
-        assert_pico_ok(self.status["stop"])
-
-        # Disconnect the scope
-        # handle = chandle
-        self.status["close"] = ps.ps4000aCloseUnit(self.chandle)
-        assert_pico_ok(self.status["close"])
-
-        # Display status returns
-        print(self.status)
 
     def plot_trace(self):
         # Create time data
@@ -83,7 +83,7 @@ class PicoScopeControl(PicoControl):
         autoStopOn = 1
         # No downsampling:
         downsampleRatio = 1
-        self.status["runStreaming"] = ps.ps4000aRunStreaming(self.chandle,
+        self.pico.status["runStreaming"] = ps.ps4000aRunStreaming(self.pico.chandle,
                                                         ctypes.byref(sampleInterval),
                                                         sampleUnits,
                                                         maxPreTriggerSamples,
@@ -92,7 +92,7 @@ class PicoScopeControl(PicoControl):
                                                         downsampleRatio,
                                                         ps.PS4000A_RATIO_MODE['PS4000A_RATIO_MODE_NONE'],
                                                         self.sizeOfOneBuffer)
-        assert_pico_ok(self.status["runStreaming"])
+        assert_pico_ok(self.pico.status["runStreaming"])
 
         actualSampleInterval = sampleInterval.value
         self.actualSampleIntervalNs = actualSampleInterval * 1000
@@ -105,7 +105,7 @@ class PicoScopeControl(PicoControl):
         # Fetch data from the driver in a loop, copying it out of the registered buffers and into our complete one.
         while self.nextSample < self.totalSamples and not autoStopOuter:
             wasCalledBack = False
-            self.status["getStreamingLastestValues"] = ps.ps4000aGetStreamingLatestValues(self.chandle, cFuncPtr, None)
+            self.pico.status["getStreamingLastestValues"] = ps.ps4000aGetStreamingLatestValues(self.pico.chandle, cFuncPtr, None)
             if not wasCalledBack:
                 # If we weren't called back by the driver, this means no data is ready. Sleep for a short while before trying
                 # again.
@@ -117,13 +117,14 @@ class PicoScopeControl(PicoControl):
         # handle = chandle
         # pointer to value = ctypes.byref(maxADC)
         maxADC = ctypes.c_int16()
-        self.status["maximumValue"] = ps.ps4000aMaximumValue(self.chandle, ctypes.byref(maxADC))
-        assert_pico_ok(self.status["maximumValue"])
+        self.pico.status["maximumValue"] = ps.ps4000aMaximumValue(self.pico.chandle, ctypes.byref(maxADC))
+        assert_pico_ok(self.pico.status["maximumValue"])
 
         # Convert ADC counts data to mV
         self.adc2mVChAMax = adc2mV(self.bufferCompleteA, self.channel_range, maxADC)
         self.adc2mVChBMax = adc2mV(self.bufferCompleteB, self.channel_range, maxADC)
         return [self.adc2mVChAMax, self.adc2mVChBMax]
+
     def set_memory(self,sizeOfOneBuffer = 500,numBuffersToCapture = 10,Channel = "CH_A"):
         self.sizeOfOneBuffer = sizeOfOneBuffer
         self.totalSamples = self.sizeOfOneBuffer * numBuffersToCapture
@@ -134,16 +135,16 @@ class PicoScopeControl(PicoControl):
 
         memory_segment = 0
         if Channel == "CH_A":
-            self.status["setDataBuffersA"] = ps.ps4000aSetDataBuffers(self.chandle,
+            self.pico.status["setDataBuffersA"] = ps.ps4000aSetDataBuffers(self.pico.chandle,
                                                              ps.PS4000A_CHANNEL['PS4000A_CHANNEL_A'],
                                                              self.bufferAMax.ctypes.data_as(ctypes.POINTER(ctypes.c_int16)),
                                                              None,
                                                              sizeOfOneBuffer,
                                                              memory_segment,
                                                              ps.PS4000A_RATIO_MODE['PS4000A_RATIO_MODE_NONE'])
-            assert_pico_ok(self.status["setDataBuffersA"])
+            assert_pico_ok(self.pico.status["setDataBuffersA"])
         else:
-            self.status["setDataBuffersB"] = ps.ps4000aSetDataBuffers(self.chandle,
+            self.pico.status["setDataBuffersB"] = ps.ps4000aSetDataBuffers(self.pico.chandle,
                                                                       ps.PS4000A_CHANNEL['PS4000A_CHANNEL_B'],
                                                                       self.bufferBMax.ctypes.data_as(
                                                                           ctypes.POINTER(ctypes.c_int16)),
@@ -151,26 +152,26 @@ class PicoScopeControl(PicoControl):
                                                                       sizeOfOneBuffer,
                                                                       memory_segment,
                                                                       ps.PS4000A_RATIO_MODE['PS4000A_RATIO_MODE_NONE'])
-            assert_pico_ok(self.status["setDataBuffersB"])
+            assert_pico_ok(self.pico.status["setDataBuffersB"])
 
     def set_channel(self, channel="CH_A",channel_range = 7, analogue_offset = 0.0):
         self.channel_range = channel_range
         if channel == "CH_A":
-            self.status["setChA"] = ps.ps4000aSetChannel(self.chandle,
+            self.pico.status["setChA"] = ps.ps4000aSetChannel(self.pico.chandle,
                                                     ps.PS4000A_CHANNEL['PS4000A_CHANNEL_A'],
                                                     ENABLED,
                                                     ps.PS4000A_COUPLING['PS4000A_DC'],
                                                     channel_range,
                                                     analogue_offset)
-            assert_pico_ok(self.status["setChA"])
+            assert_pico_ok(self.pico.status["setChA"])
         else:
-            self.status["setChB"] = ps.ps4000aSetChannel(self.chandle,
+            self.pico.status["setChB"] = ps.ps4000aSetChannel(self.pico.chandle,
                                                          ps.PS4000A_CHANNEL['PS4000A_CHANNEL_B'],
                                                          ENABLED,
                                                          ps.PS4000A_COUPLING['PS4000A_DC'],
                                                          channel_range,
                                                          analogue_offset)
-            assert_pico_ok(self.status["setChB"])
+            assert_pico_ok(self.pico.status["setChB"])
 
     def streaming_callback(self,handle, noOfSamples, startIndex, overflow, triggerAt, triggered, autoStop, param):
         # We need a big buffer, not registered with the driver, to keep our complete capture in.
@@ -187,15 +188,15 @@ class PicoScopeControl(PicoControl):
 
 
 
-class PicoSigGenControl(PicoControl):
-    def __init__(self, pk_to_pk_voltage = 2, offset_voltage = 0, frequency = 10,wave_type = 'RAMP_UP'):
+class PicoSigGenControl():
+    def __init__(self,pico, pk_to_pk_voltage = 2, offset_voltage = 0, frequency = 10,wave_type = 'RAMP_UP'):
         '''
 
         :param pk_to_pk_voltage: voltage peak to peak of the output of the signal generator [V]
         :param offset_voltage: offset of the voltage range center from 0V
         :param frequency: repetition frequency of the signal generator [Hz]
         '''
-        super().__init__()
+        self.pico = pico
         #unit conversion
         self.pk_to_pk_voltage = int(pk_to_pk_voltage*1e6) #[uV]
         self.WaveType = ps.PS4000A_WAVE_TYPE['PS4000A_'+wave_type]
@@ -204,10 +205,10 @@ class PicoSigGenControl(PicoControl):
         self.TriggerSource = ps.PS4000A_SIGGEN_TRIG_SOURCE['PS4000A_SIGGEN_NONE']
         self.extInThreshold = ctypes.c_int16(0)  # extInThreshold - Not used
 
-        self.status["SetSigGenBuiltIn"] = ps.ps4000aSetSigGenBuiltIn(self.chandle, offset_voltage, self.pk_to_pk_voltage, self.WaveType, frequency, frequency, 1, 1,
+        self.pico.status["SetSigGenBuiltIn"] = ps.ps4000aSetSigGenBuiltIn(self.pico.chandle, offset_voltage, self.pk_to_pk_voltage, self.WaveType, frequency, frequency, 1, 1,
                                                                 self.SweepType, 0, 0, 0, self.TriggerType, self.TriggerSource,
                                                                 self.extInThreshold)
-        assert_pico_ok(self.status["SetSigGenBuiltIn"])
+        assert_pico_ok(self.pico.status["SetSigGenBuiltIn"])
 
     def calculate_scan_width(self):
         self.scan_width = (self.pk_to_pk_voltage*1e-6) * VOLT_TO_NM
