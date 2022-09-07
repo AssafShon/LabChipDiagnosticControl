@@ -188,24 +188,24 @@ class PicoScopeControl(PicoControl):
 
 
 class PicoSigGenControl(PicoControl):
-    def __init__(self, pk_to_pk_voltage = 2, offset_voltage = 0.0, frequency = 10,wave_type = 'RAMP_UP'):
+    def __init__(self, pk_to_pk_voltage = 2, offset_voltage = 0, frequency = 10,wave_type = 'RAMP_UP'):
         '''
 
         :param pk_to_pk_voltage: voltage peak to peak of the output of the signal generator [V]
         :param offset_voltage: offset of the voltage range center from 0V
         :param frequency: repetition frequency of the signal generator [Hz]
         '''
-        super(PicoControl, self).__init__()
+        super().__init__()
         #unit conversion
-        self.pk_to_pk_voltage = pk_to_pk_voltage*1e6 #[uV]
+        self.pk_to_pk_voltage = int(pk_to_pk_voltage*1e6) #[uV]
         self.WaveType = ps.PS4000A_WAVE_TYPE['PS4000A_'+wave_type]
         self.SweepType = ps.PS4000A_SWEEP_TYPE['PS4000A_UP']
         self.TriggerType = ps.PS4000A_SIGGEN_TRIG_TYPE['PS4000A_SIGGEN_RISING']
         self.TriggerSource = ps.PS4000A_SIGGEN_TRIG_SOURCE['PS4000A_SIGGEN_NONE']
         self.extInThreshold = ctypes.c_int16(0)  # extInThreshold - Not used
 
-        self.status["SetSigGenBuiltIn"] = ps.ps4000aSetSigGenBuiltIn(self.chandle, offset_voltage, self.pk_to_pk_voltage, self.wavetype, frequency, frequency, 1, 1,
-                                                                self.SweepType, 0, 0, 0, self.TriggerType, self.triggerSource,
+        self.status["SetSigGenBuiltIn"] = ps.ps4000aSetSigGenBuiltIn(self.chandle, offset_voltage, self.pk_to_pk_voltage, self.WaveType, frequency, frequency, 1, 1,
+                                                                self.SweepType, 0, 0, 0, self.TriggerType, self.TriggerSource,
                                                                 self.extInThreshold)
         assert_pico_ok(self.status["SetSigGenBuiltIn"])
 
@@ -214,6 +214,14 @@ class PicoSigGenControl(PicoControl):
         return self.scan_width
 
 if __name__=='__main__':
-    o=PicoScopeControl()
+    o = PicoSigGenControl()
+    o = PicoScopeControl()
     o.get_trace()
     o.plot_trace()
+    # Instance = 'SCOPE'
+    # if Instance== 'SCOPE':
+    #     o=PicoScopeControl()
+    #     o.get_trace()
+    #     o.plot_trace()
+    # else:
+    #     o = PicoSigGenControl()
